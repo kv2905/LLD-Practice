@@ -2,6 +2,12 @@
 Design a parking lot
 */
 
+import java.time.LocalDateTime;
+import java.time.Duration;
+import java.util.*;
+import java.util.stream.Collectors;
+
+
 public class IdGenerator {
     public static String generateUniqueId() {
         UUID uuid = UUID.randomUUID();
@@ -50,24 +56,24 @@ public class ParkingSpot {
         this.vehicle = null;
     }
 
-    publice checkIfAvailable() {
+    public boolean checkIfAvailable() {
         return this.isAvailble;
     }
 
-    public getType() {
+    public PARKING_TYPE getType() {
         return this.type;
     }
 
-    public getVehicle() {
+    public Vehicle getVehicle() {
         return this.vehicle;
     }
 
-    public parkVehicle(Vehicle vehicle) {
+    public void parkVehicle(Vehicle vehicle) {
         this.vehicle = vehicle;
         this.isAvailble = false;
     }
 
-    public freeSpot() {
+    public void freeSpot() {
         this.vehicle = null;
         this.isAvailble = true;
     }
@@ -84,6 +90,10 @@ public class Floor {
         return this.parkingSpots.stream()
                    . filter(spot -> spot.checkIfAvailable())
                    .collect(Collectors.toList());
+    }
+
+    public List<ParkingSpot> getAllSpots() {
+        return this.parkingSpots;
     }
 }
 
@@ -112,22 +122,22 @@ public class Ticket {
 
 }
 
-public class TicketGenerator() {
+public class TicketGenerator {
     public static Ticket generateTicket(Vehicle vehicle) {
         return new Ticket(vehicle);
     }
 }
 
-public class ParkingManager() {
+public class ParkingManager {
     private List<Floor> parkingFloors;
 
-    public ParkingManager(parkingFloors) {
+    public ParkingManager(List<Floor> parkingFloors) {
         this.parkingFloors = parkingFloors;
     }
 
     public ParkingSpot getNextAvailableParkingSpotForVehicle(Vehicle vehicle) {
         switch(vehicle.getType()) {
-            case VEHICLE_TYPE.MOTOR_CYCLE:
+            case MOTOR_CYCLE:
                 for(Floor floor: parkingFloors) {
                     for(ParkingSpot parkingSpot: floor.getFreeParkingSpots()) {
                         if (parkingSpot.getType() == PARKING_TYPE.SMALL) {
@@ -138,7 +148,7 @@ public class ParkingManager() {
 
                 return null;
             
-            case VEHICLE_TYPE.CAR:
+            case CAR:
                 for(Floor floor: parkingFloors) {
                     for(ParkingSpot parkingSpot: floor.getFreeParkingSpots()) {
                         if (parkingSpot.getType() == PARKING_TYPE.MEDIUM) {
@@ -149,7 +159,7 @@ public class ParkingManager() {
 
                 return null;
             
-            case VEHICLE_TYPE.TRUCK:
+            case TRUCK:
                 for(Floor floor: parkingFloors) {
                     for(ParkingSpot parkingSpot: floor.getFreeParkingSpots()) {
                         if (parkingSpot.getType() == PARKING_TYPE.LARGE) {
@@ -167,9 +177,10 @@ public class ParkingManager() {
 
     public void freeParkingSpot(Vehicle vehicle) {
         for(Floor floor: this.parkingFloors) {
-            for(ParkingSpot parkingSpot: floor.getFreeParkingSpots()) {
-                if (parkingSpot.getVehicle().getID().equals(vehicle.getID())) {
-                    parkingSpot.freeSpot();
+            for(ParkingSpot spot: floor.getAllSpots()) {
+                Vehicle parkedVehicle = spot.getVehicle();
+                if (parkedVehicle != null && parkedVehicle.getID().equals(vehicle.getID())) {
+                    spot.freeSpot();
 
                     return;
                 }
@@ -178,8 +189,12 @@ public class ParkingManager() {
     }
 }
 
-public class TicketManager() {
+public class TicketManager {
     public static List<Ticket> tickets = new ArrayList<>();
+
+    public static void addTicket(Ticket ticket) {
+        TicketManager.tickets.add(ticket);
+    }
 }
 
 public class EntryGate {
@@ -197,12 +212,12 @@ public class EntryGate {
         }
 
         availableParkingSpot.parkVehicle(vehicle);
-        TicketManager.tickets.add(TicketGenerator.generateTicket(vehicle));
+        TicketManager.addTicket(TicketGenerator.generateTicket(vehicle));
         return true;
     }
 }
 
-public class PaymentManager() {
+public class PaymentManager {
     private static final int HOURLY_RATE = 20;
 
     public static int generatePayment(LocalDateTime entryTime, LocalDateTime exitTime) {
