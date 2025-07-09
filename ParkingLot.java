@@ -2,18 +2,14 @@
 Design a parking lot
 */
 
+// ========= Imports ========= //
+
 import java.time.LocalDateTime;
 import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
-
-public class IdGenerator {
-    public static String generateUniqueId() {
-        UUID uuid = UUID.randomUUID();
-        return uuid.toString();
-    }
-}
+// ========= Enums ========= //
 
 public enum VEHICLE_TYPE {
     MOTOR_CYCLE,
@@ -26,6 +22,23 @@ public enum PARKING_TYPE {
     MEDIUM,
     LARGE
 }
+
+// ========= Utility Classes ========= //
+
+public class IdGenerator {
+    public static String generateUniqueId() {
+        UUID uuid = UUID.randomUUID();
+        return uuid.toString();
+    }
+}
+
+public class TicketGenerator {
+    public static Ticket generateTicket(Vehicle vehicle) {
+        return new Ticket(vehicle);
+    }
+}
+
+// ========= Core Domain Models ========= //
 
 public class Vehicle {
     private String vehicleID;
@@ -88,7 +101,7 @@ public class Floor {
 
     public List<ParkingSpot> getFreeParkingSpots() {
         return this.parkingSpots.stream()
-                   . filter(spot -> spot.checkIfAvailable())
+                   .filter(spot -> spot.checkIfAvailable())
                    .collect(Collectors.toList());
     }
 
@@ -122,57 +135,84 @@ public class Ticket {
 
 }
 
-public class TicketGenerator {
-    public static Ticket generateTicket(Vehicle vehicle) {
-        return new Ticket(vehicle);
+public class EntryGate {
+    private ParkingManager parkingManager;
+
+    public EntryGate(ParkingManager parkingManager) {
+        this.parkingManager = parkingManager;
+    }
+
+    public boolean permitParking(Vehicle vehicle) {
+        ParkingSpot availableParkingSpot = this.parkingManager.getNextAvailableParkingSpotForVehicle(vehicle);
+
+        if (availableParkingSpot == null) {
+            return false;
+        }
+
+        availableParkingSpot.parkVehicle(vehicle);
+        TicketManager.addTicket(TicketGenerator.generateTicket(vehicle));
+        return true;
     }
 }
 
+public class ExitGate {
+    private ParkingManager parkingManager;
+
+    public ExitGate(ParkingManager parkingManager) {
+        this.parkingManager = parkingManager;
+    }
+
+    public void freeParkingSpot(Ticket vehicleTicket) {
+        for (Ticket ticket: TicketManager.tickets) {
+            if (vehicleTicket.getID().equals(ticket.getID())) {
+                int payableAmount = PaymentManager.generatePayment(vehicleTicket.getEntryTime(), LocalDateTime.now());
+                this.parkingManager.freeParkingSpot(vehicleTicket.getVehicle());
+            }
+        }
+    }
+}
+
+// ========= Helpers ========== //
+
+interface SpotAssignmentStrategy {
+    ParkingSpot assignSpot(List<Floor> floors, Vehicle vehicle);
+}
+
+public class DefaultSpotAssignmentStrategy implements SpotAssignmentStrategy {
+    public ParkingSpot assignSpot(List<Floor> floors, Vehicle vehicle) {
+        PARKING_TYPE requiredType;
+        switch (vehicle.getType()) {
+            case MOTOR_CYCLE: requiredType = PARKING_TYPE.SMALL; break;
+            case CAR: requiredType = PARKING_TYPE.MEDIUM; break;
+            case TRUCK: requiredType = PARKING_TYPE.LARGE; break;
+            default: return null;
+        }
+
+        for (Floor floor : floors) {
+            for (ParkingSpot spot : floor.getFreeParkingSpots()) {
+                if (spot.getType() == requiredType) {
+                    return spot;
+                }
+            }
+        }
+        return null;
+    }
+}
+
+
+// ========= Managers ========= //
+
 public class ParkingManager {
     private List<Floor> parkingFloors;
+    private SpotAssignmentStrategy spotAssignmentStrategy;
 
-    public ParkingManager(List<Floor> parkingFloors) {
+    public ParkingManager(List<Floor> parkingFloors, SpotAssignmentStrategy spotAssignmentStrategy) {
         this.parkingFloors = parkingFloors;
+        this.spotAssignmentStrategy = spotAssignmentStrategy;
     }
 
     public ParkingSpot getNextAvailableParkingSpotForVehicle(Vehicle vehicle) {
-        switch(vehicle.getType()) {
-            case MOTOR_CYCLE:
-                for(Floor floor: parkingFloors) {
-                    for(ParkingSpot parkingSpot: floor.getFreeParkingSpots()) {
-                        if (parkingSpot.getType() == PARKING_TYPE.SMALL) {
-                            return parkingSpot;
-                        }
-                    }
-                }
-
-                return null;
-            
-            case CAR:
-                for(Floor floor: parkingFloors) {
-                    for(ParkingSpot parkingSpot: floor.getFreeParkingSpots()) {
-                        if (parkingSpot.getType() == PARKING_TYPE.MEDIUM) {
-                            return parkingSpot;
-                        }
-                    }
-                }
-
-                return null;
-            
-            case TRUCK:
-                for(Floor floor: parkingFloors) {
-                    for(ParkingSpot parkingSpot: floor.getFreeParkingSpots()) {
-                        if (parkingSpot.getType() == PARKING_TYPE.LARGE) {
-                            return parkingSpot;
-                        }
-                    }
-                }
-
-                return null;
-            
-            default:
-                return null;
-        }
+        return spotAssignmentStrategy.assignSpot(this.parkingFloors, vehicle);
     }
 
     public void freeParkingSpot(Vehicle vehicle) {
@@ -197,26 +237,6 @@ public class TicketManager {
     }
 }
 
-public class EntryGate {
-    private ParkingManager parkingManager;
-
-    public EntryGate(ParkingManager parkingManager) {
-        this.parkingManager = parkingManager;
-    }
-
-    public boolean permitParking(Vehicle vehicle) {
-        ParkingSpot availableParkingSpot = this.parkingManager.getNextAvailableParkingSpotForVehicle(vehicle);
-
-        if (availableParkingSpot == null) {
-            return false;
-        }
-
-        availableParkingSpot.parkVehicle(vehicle);
-        TicketManager.addTicket(TicketGenerator.generateTicket(vehicle));
-        return true;
-    }
-}
-
 public class PaymentManager {
     private static final int HOURLY_RATE = 20;
 
@@ -232,19 +252,31 @@ public class PaymentManager {
     }
 }
 
-public class ExitGate {
-    private ParkingManager parkingManager;
 
-    public ExitGate(ParkingManager parkingManager) {
-        this.parkingManager = parkingManager;
-    }
+// ========= Main (or Test) ========= //
+public class ParkingLotMain {
+    public static void main(String[] args) {
+        List<ParkingSpot> spotsFloor1 = Arrays.asList(
+            new ParkingSpot(PARKING_TYPE.SMALL),
+            new ParkingSpot(PARKING_TYPE.MEDIUM),
+            new ParkingSpot(PARKING_TYPE.LARGE)
+        );
 
-    public void freeParkingSpot(Ticket vehicleTicket) {
-        for (Ticket ticket: TicketManager.tickets) {
-            if (vehicleTicket.getID().equals(ticket.getID())) {
-                int payableAmount = PaymentManager.generatePayment(vehicleTicket.getEntryTime(), LocalDateTime.now());
-                this.parkingManager.freeParkingSpot(vehicleTicket.getVehicle());
-            }
+        Floor floor1 = new Floor(spotsFloor1);
+        List<Floor> floors = Arrays.asList(floor1);
+
+        SpotAssignmentStrategy strategy = new DefaultSpotAssignmentStrategy();
+        ParkingManager parkingManager = new ParkingManager(floors, strategy);
+
+        EntryGate entryGate = new EntryGate(parkingManager);
+        Vehicle bike = new Vehicle(VEHICLE_TYPE.MOTOR_CYCLE);
+        Vehicle car = new Vehicle(VEHICLE_TYPE.CAR);
+
+        System.out.println("Bike allowed: " + entryGate.permitParking(bike));
+        System.out.println("Car allowed: " + entryGate.permitParking(car));
+
+        for (ParkingSpot spot : floor1.getAllSpots()) {
+            System.out.println(spot.getType() + " | Available: " + spot.checkIfAvailable());
         }
     }
 }
