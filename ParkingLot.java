@@ -137,9 +137,11 @@ public class Ticket {
 
 public class EntryGate {
     private ParkingManager parkingManager;
+    private TicketManager ticketManager;
 
-    public EntryGate(ParkingManager parkingManager) {
+    public EntryGate(ParkingManager parkingManager, TicketManager ticketManager) {
         this.parkingManager = parkingManager;
+        this.ticketManager = ticketManager;
     }
 
     public boolean permitParking(Vehicle vehicle) {
@@ -150,7 +152,7 @@ public class EntryGate {
         }
 
         availableParkingSpot.parkVehicle(vehicle);
-        TicketManager.addTicket(TicketGenerator.generateTicket(vehicle));
+        this.ticketManager.addTicket(TicketGenerator.generateTicket(vehicle));
         return true;
     }
 }
@@ -158,20 +160,22 @@ public class EntryGate {
 public class ExitGate {
     private ParkingManager parkingManager;
     private PricingStrategy pricingStrategy;
+    private TicketManager ticketManager;
 
-    public ExitGate(ParkingManager parkingManager, PricingStrategy pricingStrategy) {
+    public ExitGate(ParkingManager parkingManager, PricingStrategy pricingStrategy, TicketManager ticketManager) {
         this.parkingManager = parkingManager;
         this.pricingStrategy = pricingStrategy;
+        this.ticketManager = ticketManager;
     }
 
     public int freeParkingSpot(Ticket vehicleTicket) {
-        for (Ticket ticket: TicketManager.tickets) {
-            if (vehicleTicket.getID().equals(ticket.getID())) {
-                int payableAmount = this.pricingStrategy.generateParkingPrice(vehicleTicket.getEntryTime(), LocalDateTime.now());
-                this.parkingManager.freeParkingSpot(vehicleTicket.getVehicle());
+        Optional<Ticket> ticketOpt = this.ticketManager.getTicketById(vehicleTicket.getID());
 
-                return payableAmount;
-            }
+        if (ticketOpt.isPresent()) {
+            Ticket ticket = ticketOpt.get();
+            int payableAmount = this.pricingStrategy.generateParkingPrice(ticket.getEntryTime(), LocalDateTime.now());
+            this.parkingManager.freeParkingSpot(ticket.getVehicle());
+            return payableAmount;
         }
 
         return 0;
@@ -254,12 +258,27 @@ public class ParkingManager {
 }
 
 public class TicketManager {
-    public static List<Ticket> tickets = new ArrayList<>();
+    private List<Ticket> tickets;
 
-    public static void addTicket(Ticket ticket) {
-        TicketManager.tickets.add(ticket);
+    public TicketManager() {
+        this.tickets = new ArrayList<>();
+    }
+
+    public List<Ticket> getAllTickets() {
+        return this.tickets;
+    }
+
+    public void addTicket(Ticket ticket) {
+        this.tickets.add(ticket);
+    }
+
+    public Optional<Ticket> getTicketById(String ticketId) {
+        return this.tickets.stream()
+                .filter(ticket -> ticket.getID().equals(ticketId))
+                .findFirst();
     }
 }
+
 
 // ========= Main (or Test) ========= //
 public class ParkingLotMain {
