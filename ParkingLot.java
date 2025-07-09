@@ -157,18 +157,24 @@ public class EntryGate {
 
 public class ExitGate {
     private ParkingManager parkingManager;
+    private PricingStrategy pricingStrategy;
 
-    public ExitGate(ParkingManager parkingManager) {
+    public ExitGate(ParkingManager parkingManager, PricingStrategy pricingStrategy) {
         this.parkingManager = parkingManager;
+        this.pricingStrategy = pricingStrategy;
     }
 
-    public void freeParkingSpot(Ticket vehicleTicket) {
+    public int freeParkingSpot(Ticket vehicleTicket) {
         for (Ticket ticket: TicketManager.tickets) {
             if (vehicleTicket.getID().equals(ticket.getID())) {
-                int payableAmount = PaymentManager.generatePayment(vehicleTicket.getEntryTime(), LocalDateTime.now());
+                int payableAmount = this.pricingStrategy.generateParkingPrice(vehicleTicket.getEntryTime(), LocalDateTime.now());
                 this.parkingManager.freeParkingSpot(vehicleTicket.getVehicle());
+
+                return payableAmount;
             }
         }
+
+        return 0;
     }
 }
 
@@ -199,6 +205,24 @@ public class DefaultSpotAssignmentStrategy implements SpotAssignmentStrategy {
     }
 }
 
+interface PricingStrategy {
+    int generateParkingPrice(LocalDateTime entryTime, LocalDateTime exitTime);
+}
+
+public class DefaultPricingStrategy implements PricingStrategy {
+    private final int HOURLY_RATE = 20;
+
+    public int generateParkingPrice(LocalDateTime entryTime, LocalDateTime exitTime) {
+        long durationInHours = Duration.between(entryTime, exitTime).toHours();
+        
+        // Minimum charge for at least 1 hour
+        if (durationInHours == 0) {
+            durationInHours = 1;
+        }
+
+        return (int) durationInHours * HOURLY_RATE;
+    }
+}
 
 // ========= Managers ========= //
 
@@ -236,22 +260,6 @@ public class TicketManager {
         TicketManager.tickets.add(ticket);
     }
 }
-
-public class PaymentManager {
-    private static final int HOURLY_RATE = 20;
-
-    public static int generatePayment(LocalDateTime entryTime, LocalDateTime exitTime) {
-        long durationInHours = Duration.between(entryTime, exitTime).toHours();
-        
-        // Minimum charge for at least 1 hour
-        if (durationInHours == 0) {
-            durationInHours = 1;
-        }
-
-        return (int) durationInHours * HOURLY_RATE;
-    }
-}
-
 
 // ========= Main (or Test) ========= //
 public class ParkingLotMain {
