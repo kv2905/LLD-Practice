@@ -282,7 +282,8 @@ public class TicketManager {
 
 // ========= Main (or Test) ========= //
 public class ParkingLotMain {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
+        // Step 1: Setup parking lot
         List<ParkingSpot> spotsFloor1 = Arrays.asList(
             new ParkingSpot(PARKING_TYPE.SMALL),
             new ParkingSpot(PARKING_TYPE.MEDIUM),
@@ -294,16 +295,55 @@ public class ParkingLotMain {
 
         SpotAssignmentStrategy strategy = new DefaultSpotAssignmentStrategy();
         ParkingManager parkingManager = new ParkingManager(floors, strategy);
+        TicketManager ticketManager = new TicketManager();
+        PricingStrategy pricingStrategy = new DefaultPricingStrategy();
 
-        EntryGate entryGate = new EntryGate(parkingManager);
+        EntryGate entryGate = new EntryGate(parkingManager, ticketManager);
+        ExitGate exitGate = new ExitGate(parkingManager, pricingStrategy, ticketManager);
+
+        // Step 2: Create vehicles
         Vehicle bike = new Vehicle(VEHICLE_TYPE.MOTOR_CYCLE);
         Vehicle car = new Vehicle(VEHICLE_TYPE.CAR);
 
-        System.out.println("Bike allowed: " + entryGate.permitParking(bike));
-        System.out.println("Car allowed: " + entryGate.permitParking(car));
+        // Step 3: Park vehicles
+        System.out.println("---- Parking Vehicles ----");
+        System.out.println("Bike parked: " + entryGate.permitParking(bike));
+        System.out.println("Car parked: " + entryGate.permitParking(car));
 
+        // Step 4: Show availability after parking
+        System.out.println("\n---- Spot Availability After Parking ----");
+        for (ParkingSpot spot : floor1.getAllSpots()) {
+            System.out.println(spot.getType() + " | Available: " + spot.checkIfAvailable());
+        }
+
+        // Simulate parking duration
+        System.out.println("\nSleeping for 2 seconds to simulate parking duration...");
+        Thread.sleep(2000);
+
+        // Step 5: Fetch tickets
+        Ticket bikeTicket = ticketManager.getAllTickets().stream()
+                .filter(t -> t.getVehicle().getID().equals(bike.getID()))
+                .findFirst()
+                .orElseThrow();
+
+        Ticket carTicket = ticketManager.getAllTickets().stream()
+                .filter(t -> t.getVehicle().getID().equals(car.getID()))
+                .findFirst()
+                .orElseThrow();
+
+        // Step 6: Exit and calculate payment
+        System.out.println("\n---- Vehicle Exit ----");
+        int bikePayment = exitGate.freeParkingSpot(bikeTicket);
+        int carPayment = exitGate.freeParkingSpot(carTicket);
+
+        System.out.println("Bike payment: ₹" + bikePayment);
+        System.out.println("Car payment: ₹" + carPayment);
+
+        // Step 7: Show availability after exit
+        System.out.println("\n---- Spot Availability After Exit ----");
         for (ParkingSpot spot : floor1.getAllSpots()) {
             System.out.println(spot.getType() + " | Available: " + spot.checkIfAvailable());
         }
     }
 }
+
