@@ -4,6 +4,8 @@ Problem Statement: An ATM needs to dispense cash in denominations of ₹2000, �
 Given a withdrawal amount (e.g., ₹3700), it should use the highest possible denominations first and delegate to the next handler for the remaining amount.
 */
 
+import java.util.*;
+
 public class ATMMain {
     public static void main(String[] args) {
         CashDispenser atm = new TwoThousandCashDispenser();
@@ -11,11 +13,23 @@ public class ATMMain {
            .setNext(new OneHundredCashDispenser())
            .setNext(new FiftyCashDispenser());
 
+        Map<Integer, Integer> result = new LinkedHashMap<>();
+
         System.out.println("Withdraw ₹3700:");
-        atm.dispense(3700);
+        atm.dispense(3700, result);
+        printResult(result);
+
+        result = new LinkedHashMap<>();
 
         System.out.println("\nWithdraw ₹250:");
-        atm.dispense(250);
+        atm.dispense(250, result);
+        printResult(result);
+    }
+
+    private static void printResult(Map<Integer, Integer> result) {
+        for (var entry : result.entrySet()) {
+            System.out.println(entry.getKey() + ": " + entry.getValue());
+        }
     }
 }
 
@@ -27,19 +41,19 @@ abstract class CashDispenser {
         return this.nextCashDispenser;
     }
 
-    public void dispense(int amount) {
+    public void dispense(int amount, Map<Integer, Integer> result) {
         int denomination = this.getDenomination();
         if (amount >= denomination) {
             int count = amount / denomination;
             int remainder = amount % denomination;
-            System.out.println("Dispensing " + count + " x ₹" + denomination);
+            result.put(denomination, result.getOrDefault(denomination, 0) + count);
             if (remainder > 0 && this.nextCashDispenser != null) {
-                this.nextCashDispenser.dispense(remainder);
+                this.nextCashDispenser.dispense(remainder, result);
             } else if (remainder > 0) {
                 System.out.println("Cannot dispense ₹" + remainder + ". No handler.");
             }
         } else if(this.nextCashDispenser != null) {
-            this.nextCashDispenser.dispense(amount);
+            this.nextCashDispenser.dispense(amount, result);
         } else {
             System.out.println("Cannot dispense ₹" + amount + ". No handler.");
         }
