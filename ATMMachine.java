@@ -6,9 +6,10 @@ Given a withdrawal amount (e.g., ₹3700), it should use the highest possible de
 
 public class ATMMain {
     public static void main(String[] args) {
-        CashDispencer atm = new TwoThousandCashDispencer();
-        atm.setNext(new FiveHunderedCashDispencer())
-           .setNext(new OneHunderedCashDispencer());
+        CashDispenser atm = new TwoThousandCashDispenser();
+        atm.setNext(new FiveHundredCashDispenser())
+           .setNext(new OneHundredCashDispenser())
+           .setNext(new FiftyCashDispenser());
 
         System.out.println("Withdraw ₹3700:");
         atm.dispense(3700);
@@ -18,27 +19,27 @@ public class ATMMain {
     }
 }
 
-abstract class CashDispencer {
-    CashDispencer nextCashDispencer;
+abstract class CashDispenser {
+    CashDispenser nextCashDispenser;
 
-    public CashDispencer setNext(CashDispencer cashDispencer) {
-        this.nextCashDispencer = cashDispencer;
-        return this.nextCashDispencer;
+    public CashDispenser setNext(CashDispenser CashDispenser) {
+        this.nextCashDispenser = CashDispenser;
+        return this.nextCashDispenser;
     }
 
     public void dispense(int amount) {
         int denomination = this.getDenomination();
         if (amount >= denomination) {
             int count = amount / denomination;
-            int reminder = amount % denomination;
+            int remainder = amount % denomination;
             System.out.println("Dispensing " + count + " x ₹" + denomination);
-            if (reminder > 0 && this.nextCashDispencer != null) {
-                this.nextCashDispencer.dispense(reminder);
-            } else if (reminder > 0) {
-                System.out.println("Cannot dispense ₹" + reminder + ". No handler.");
+            if (remainder > 0 && this.nextCashDispenser != null) {
+                this.nextCashDispenser.dispense(remainder);
+            } else if (remainder > 0) {
+                System.out.println("Cannot dispense ₹" + remainder + ". No handler.");
             }
-        } else if(this.nextCashDispencer != null) {
-            this.nextCashDispencer.dispense(amount);
+        } else if(this.nextCashDispenser != null) {
+            this.nextCashDispenser.dispense(amount);
         } else {
             System.out.println("Cannot dispense ₹" + amount + ". No handler.");
         }
@@ -47,20 +48,26 @@ abstract class CashDispencer {
     public abstract int getDenomination();
 }
 
-class TwoThousandCashDispencer extends CashDispencer {
+class TwoThousandCashDispenser extends CashDispenser {
     public int getDenomination() {
         return 2000;
     }
 }
 
-class FiveHunderedCashDispencer extends CashDispencer {
+class FiveHundredCashDispenser extends CashDispenser {
     public int getDenomination() {
         return 500;
     }
 }
 
-class OneHunderedCashDispencer extends CashDispencer {
+class OneHundredCashDispenser extends CashDispenser {
     public int getDenomination() {
         return 100;
+    }
+}
+
+class FiftyCashDispenser extends CashDispenser {
+    public int getDenomination() {
+        return 50;
     }
 }
