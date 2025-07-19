@@ -4,25 +4,25 @@ Problem Statement: An ATM needs to dispense cash in denominations of ₹2000, �
 Given a withdrawal amount (e.g., ₹3700), it should use the highest possible denominations first and delegate to the next handler for the remaining amount.
 */
 
+// ======== Imports ========== //
+
 import java.util.*;
+
+// ======= Main Test ======== //
 
 public class ATMMain {
     public static void main(String[] args) {
-        CashDispenser atm = new TwoThousandCashDispenser();
-        atm.setNext(new FiveHundredCashDispenser())
-           .setNext(new OneHundredCashDispenser())
-           .setNext(new FiftyCashDispenser());
+        int amount = 50;
+
+        Validator amountValidator = new ValidatorFactory().getValidator();
+        CashDispenser cashDispenser = new CashDispenserFactory().getCashDispenser();
+
+        ATMMachine atm = new ATMMachine(amountValidator, cashDispenser);
 
         Map<Integer, Integer> result = new LinkedHashMap<>();
 
-        System.out.println("Withdraw ₹3700:");
-        atm.dispense(3700, result);
-        printResult(result);
+        atm.processAmount(amount, result);
 
-        result = new LinkedHashMap<>();
-
-        System.out.println("\nWithdraw ₹250:");
-        atm.dispense(250, result);
         printResult(result);
     }
 
@@ -33,8 +33,100 @@ public class ATMMain {
     }
 }
 
+// =========== ATM Machine ============= //
+
+public class ATMMachine {
+    private Validator validator;
+    private CashDispenser cashDispenser;
+
+    public ATMMachine(Validator validator, CashDispenser cashDispenser) {
+        this.validator = validator;
+        this.cashDispenser = cashDispenser;
+    }
+
+    private boolean validateAmount(int amount) {
+        return this.validator.validate(amount);
+    }
+
+    private void dispenseCash(int amount, Map<Integer, Integer> result) {
+        this.cashDispenser.dispense(amount, result);
+    }
+
+    public void processAmount(int amount, Map<Integer, Integer> result) {
+        System.out.println("Withdrawing amount: " + amount);
+
+        if (!this.validateAmount(amount)) {
+            System.out.println("Please enter a valid amount, minimum should be 50 and should a multiple of 50");
+
+            return;
+        }
+
+        this.dispenseCash(amount, result);
+    }
+}
+
+// ========== Validator Factory =============== //
+
+class ValidatorFactory {
+    public Validator getValidator() {
+        Validator validator = new MinimumAmountValidator();
+        validator.setNext(new MultipleOfFiftyValidator());
+
+        return validator;
+    }
+}
+
+// ========== Cash Dispenser Factory ========= //
+
+class CashDispenserFactory {
+    public CashDispenser getCashDispenser() {
+        CashDispenser atm = new TwoThousandCashDispenser();
+        atm.setNext(new FiveHundredCashDispenser())
+           .setNext(new OneHundredCashDispenser())
+           .setNext(new FiftyCashDispenser());
+
+        return atm;
+    }
+}
+
+// ========= Validation Chain of Responsibility ========= //
+
+abstract class Validator {
+    protected Validator nextValidator;
+
+    public Validator setNext(Validator validator) {
+        this.nextValidator = validator;
+        return this.nextValidator;
+    }
+
+    public boolean validate(int amount) {
+        boolean isValid = this.getValidation(amount);
+        if (!isValid) return false;
+        if (this.nextValidator != null) {
+            return this.nextValidator.validate(amount);
+        }
+        return true;
+    }
+
+    public abstract boolean getValidation(int amount);
+}
+
+class MinimumAmountValidator extends Validator {
+    public boolean getValidation(int amount) {
+        return amount >= 50;
+    }
+}
+
+class MultipleOfFiftyValidator extends Validator {
+    public boolean getValidation(int amount) {
+        return amount % 50 == 0;
+    }
+}
+
+// ======== Dispensing Chain of Responsibility ========= //
+
 abstract class CashDispenser {
-    CashDispenser nextCashDispenser;
+    protected CashDispenser nextCashDispenser;
 
     public CashDispenser setNext(CashDispenser CashDispenser) {
         this.nextCashDispenser = CashDispenser;
@@ -85,3 +177,5 @@ class FiftyCashDispenser extends CashDispenser {
         return 50;
     }
 }
+
+// ========= End of Program ========= //
