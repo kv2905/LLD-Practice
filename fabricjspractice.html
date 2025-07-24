@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Fabric.js Group Drag Bound</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    canvas {
+      border: 2px solid black;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="fabricCanvas" width="600" height="600"></canvas>
+
+  <script>
+    const canvas = new fabric.Canvas('fabricCanvas', {
+      selection: false,
+    });
+
+    // Create adjacent rectangles
+    const rect1 = new fabric.Rect({
+      left: 0, top: 0, width: 100, height: 100, fill: 'red'
+    });
+    const rect2 = new fabric.Rect({
+      left: 100, top: 0, width: 100, height: 100, fill: 'green'
+    });
+    const rect3 = new fabric.Rect({
+      left: 200, top: 0, width: 100, height: 100, fill: 'blue'
+    });
+
+    // Group them
+    const group = new fabric.Group([rect1, rect2, rect3], {
+      left: 150,
+      top: 250,
+      hasControls: false,
+      lockRotation: true
+    });
+
+    canvas.add(group);
+
+    // Store last valid position
+    canvas.on('object:mousedown', function (e) {
+      const obj = e.target;
+      obj._lastLeft = obj.left;
+      obj._lastTop = obj.top;
+    });
+
+    // Restrict dragging if more than half of group goes outside canvas
+    canvas.on('object:moving', function (e) {
+      const obj = e.target;
+      const zoom = canvas.getZoom();
+      const vpt = canvas.viewportTransform;
+
+      const canvasLeft = -vpt[4] / zoom;
+      const canvasTop = -vpt[5] / zoom;
+      const canvasRight = canvasLeft + canvas.getWidth() / zoom;
+      const canvasBottom = canvasTop + canvas.getHeight() / zoom;
+
+      const objWidth = obj.getScaledWidth();
+      const objHeight = obj.getScaledHeight();
+
+      const halfW = objWidth / 2;
+      const halfH = objHeight / 2;
+
+      // Only allow movement if more than half of the object is inside the canvas
+      const leftVisible = obj.left + halfW > canvasLeft;
+      const rightVisible = obj.left + halfW < canvasRight;
+      const topVisible = obj.top + halfH > canvasTop;
+      const bottomVisible = obj.top + halfH < canvasBottom;
+
+      if (!(leftVisible && rightVisible && topVisible && bottomVisible)) {
+        obj.left = obj._lastLeft;
+        obj.top = obj._lastTop;
+      } else {
+        obj._lastLeft = obj.left;
+        obj._lastTop = obj.top;
+      }
+    });
+
+    // Zoom with mouse wheel
+    canvas.on('mouse:wheel', function(opt) {
+      const delta = opt.e.deltaY;
+      let zoom = canvas.getZoom();
+      zoom *= 0.999 ** delta;
+      zoom = Math.max(0.5, Math.min(zoom, 5));
+      canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+    });
+
+    // Pan with Alt or middle mouse
+    let isPanning = false;
+    let lastPosX = 0, lastPosY = 0;
+
+    canvas.on('mouse:down', function(opt) {
+      const evt = opt.e;
+      if (evt.altKey || evt.button === 1) {
+        isPanning = true;
+        lastPosX = evt.clientX;
+        lastPosY = evt.clientY;
+        canvas.setCursor('grab');
+      }
+    });
+
+    canvas.on('mouse:move', function(opt) {
+      if (!isPanning) return;
+      const e = opt.e;
+      const vpt = canvas.viewportTransform;
+      vpt[4] += e.clientX - lastPosX;
+      vpt[5] += e.clientY - lastPosY;
+      canvas.requestRenderAll();
+      lastPosX = e.clientX;
+      lastPosY = e.clientY;
+    });
+
+    canvas.on('mouse:up', function() {
+      isPanning = false;
+      canvas.setCursor('default');
+    });
+  </script>
+</body>
+</html>
